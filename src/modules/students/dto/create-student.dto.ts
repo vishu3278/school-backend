@@ -8,6 +8,7 @@ import {
   IsString,
   IsUUID,
 } from 'class-validator';
+import { Religion } from '../student.entity';
 
 export enum Gender {
   MALE = 'MALE',
@@ -16,8 +17,10 @@ export enum Gender {
 }
 
 export class CreateStudentDto {
+  @Transform(({ value }) => (typeof value === 'string' && value.trim() === '' ? undefined : value))
+  @IsOptional()
   @IsString()
-  admissionNo: string;
+  admissionNo?: string;
 
   @IsString()
   firstName: string;
@@ -49,6 +52,36 @@ export class CreateStudentDto {
   @IsOptional()
   @IsString()
   address?: string;
+
+  @Transform(({ value }) => (typeof value === 'string' && value.trim() === '' ? undefined : value))
+  @IsOptional()
+  @IsString()
+  password?: string;
+
+  @Transform(({ value }) => (typeof value === 'string' && value.trim() === '' ? undefined : value))
+  @IsOptional()
+  @IsString()
+  phone2?: string;
+
+  @Transform(({ value }) => (typeof value === 'string' && value.trim() === '' ? undefined : value))
+  @IsOptional()
+  @IsString()
+  motherName?: string;
+
+  @Transform(({ value }) => (typeof value === 'string' && value.trim() === '' ? undefined : value))
+  @IsOptional()
+  @IsString()
+  fatherName?: string;
+
+  @Transform(({ value }) => (typeof value === 'string' && value.trim() === '' ? undefined : value))
+  @IsOptional()
+  @IsString()
+  aadharNo?: string;
+
+  @Transform(({ value }) => (typeof value === 'string' && value.trim() === '' ? undefined : value))
+  @IsOptional()
+  @IsEnum(Religion)
+  religion?: Religion;
 
   @IsUUID()
   gradeId: string;
