@@ -15,6 +15,32 @@ import { UpdateStudentDto } from './dto/update-student.dto';
 
 import { Student } from './student.entity';
 
+async function generateAdmissionNumber(repository: Repository<Student>): Promise<string> {
+  const now = new Date();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const year = String(now.getFullYear()).slice(-2);
+  const prefix = `${month}${year}`;
+
+  const getNumberFromAdmission = (value: string): number => {
+    const suffix = value.replace(prefix, '');
+    const parsed = Number.parseInt(suffix, 10);
+    return Number.isNaN(parsed) ? 0 : parsed;
+  };
+
+  const rows = await repository
+    .createQueryBuilder('student')
+    .where('student.admission_no LIKE :prefix', { prefix: `${prefix}%` })
+    .select('student.admission_no', 'admissionNo')
+    .getRawMany();
+
+  const maxNumber = rows.reduce((max, row) => {
+    const nextValue = getNumberFromAdmission(row.admissionNo);
+    return Math.max(max, nextValue);
+  }, 0);
+
+  return `${prefix}${String(maxNumber + 1).padStart(3, '0')}`;
+}
+
 @Injectable()
 export class StudentsService {
   constructor(
@@ -59,15 +85,25 @@ export class StudentsService {
       dateOfBirth,
       gender,
       phone,
+      phone2,
       email,
       address,
+      password,
+      motherName,
+      fatherName,
+      aadharNo,
+      religion,
       gradeId,
     } = createStudentDto;
 
-    // 1. Check admission number
+    const nextAdmissionNo =
+      admissionNo && admissionNo.trim()
+        ? admissionNo.trim()
+        : await generateAdmissionNumber(this.studentRepository);
+
     const existingStudent = await this.studentRepository.findOne({
       where: {
-        admissionNo,
+        admissionNo: nextAdmissionNo,
       },
     });
 
@@ -75,7 +111,6 @@ export class StudentsService {
       throw new ConflictException('Admission number already exists');
     }
 
-    // 2. Check grade
     const grade = await this.gradeRepository.findOne({
       where: {
         id: gradeId,
@@ -86,20 +121,24 @@ export class StudentsService {
       throw new NotFoundException('Grade not found');
     }
 
-    // 3. Create student
     const student = this.studentRepository.create({
-      admissionNo,
+      admissionNo: nextAdmissionNo,
       firstName,
       lastName,
       dateOfBirth: dateOfBirth || null,
       gender: gender || null,
       phone: phone || null,
+      phone2: phone2 || null,
       email: email || null,
       address: address || null,
+      password: password && password.trim() ? password.trim() : nextAdmissionNo,
+      motherName: motherName || null,
+      fatherName: fatherName || null,
+      aadharNo: aadharNo || null,
+      religion: religion || null,
       grade,
     });
 
-    // 4. Save to PostgreSQL
     return this.studentRepository.save(student);
   }
 
@@ -128,14 +167,23 @@ export class StudentsService {
     }
 
     Object.assign(student, {
-      admissionNo: updateStudentDto.admissionNo ?? student.admissionNo,
+      admissionNo: student.admissionNo,
       firstName: updateStudentDto.firstName ?? student.firstName,
       lastName: updateStudentDto.lastName ?? student.lastName,
       dateOfBirth: updateStudentDto.dateOfBirth ?? student.dateOfBirth,
       gender: updateStudentDto.gender ?? student.gender,
       phone: updateStudentDto.phone ?? student.phone,
+      phone2: updateStudentDto.phone2 ?? student.phone2,
       email: updateStudentDto.email ?? student.email,
       address: updateStudentDto.address ?? student.address,
+      password:
+        updateStudentDto.password && updateStudentDto.password.trim()
+          ? updateStudentDto.password.trim()
+          : student.password,
+      motherName: updateStudentDto.motherName ?? student.motherName,
+      fatherName: updateStudentDto.fatherName ?? student.fatherName,
+      aadharNo: updateStudentDto.aadharNo ?? student.aadharNo,
+      religion: updateStudentDto.religion ?? student.religion,
     });
 
     return this.studentRepository.save(student);
