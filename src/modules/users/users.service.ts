@@ -47,7 +47,21 @@ export class UsersService {
   }
 
   async create(createUserDto: CreateUserDto): Promise<User> {
-    const { firstName, lastName, email, password, role } = createUserDto;
+    const {
+      firstName,
+      lastName,
+      email,
+      password,
+      role,
+      phone,
+      highestEducation,
+      institution,
+      yearOfPassing,
+      address,
+      maritalStatus,
+      gender,
+      photo,
+    } = createUserDto;
 
     const existingUser = await this.userRepository.findOne({
       where: { email },
@@ -65,6 +79,14 @@ export class UsersService {
       email,
       password: hashedPassword,
       role,
+      phone,
+      highestEducation,
+      institution,
+      yearOfPassing,
+      address,
+      maritalStatus,
+      gender,
+      photo,
     });
 
     return this.userRepository.save(user);
@@ -99,6 +121,14 @@ export class UsersService {
       email: updateUserDto.email ?? user.email,
       password: nextPassword,
       role: updateUserDto.role ?? user.role,
+      phone: updateUserDto.phone ?? user.phone,
+      highestEducation: updateUserDto.highestEducation ?? user.highestEducation,
+      institution: updateUserDto.institution ?? user.institution,
+      yearOfPassing: updateUserDto.yearOfPassing ?? user.yearOfPassing,
+      address: updateUserDto.address ?? user.address,
+      maritalStatus: updateUserDto.maritalStatus ?? user.maritalStatus,
+      gender: updateUserDto.gender ?? user.gender,
+      photo: updateUserDto.photo ?? user.photo,
     });
 
     return this.userRepository.save(user);

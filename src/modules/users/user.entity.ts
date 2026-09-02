@@ -36,6 +36,30 @@ export class User {
   })
   password: string;
 
+  @Column({ type: 'varchar', nullable: true, length: 30 })
+  phone: string | null;
+
+  @Column({ name: 'highest_education', type: 'varchar', nullable: true, length: 150 })
+  highestEducation: string | null;
+
+  @Column({ type: 'varchar', nullable: true, length: 200 })
+  institution: string | null;
+
+  @Column({ name: 'year_of_passing', type: 'varchar', nullable: true, length: 4 })
+  yearOfPassing: string | null;
+
+  @Column({ type: 'text', nullable: true })
+  address: string | null;
+
+  @Column({ name: 'marital_status', type: 'varchar', nullable: true, length: 30 })
+  maritalStatus: string | null;
+
+  @Column({ type: 'varchar', nullable: true, length: 30 })
+  gender: string | null;
+
+  @Column({ nullable: true, type: 'text' })
+  photo: string | null;
+
   @Column({
     type: 'enum',
     enum: UserRole,
