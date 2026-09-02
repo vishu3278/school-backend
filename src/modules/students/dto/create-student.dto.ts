@@ -85,5 +85,8 @@ export class CreateStudentDto {
 
   @IsUUID()
   gradeId: string;
+
+  @IsUUID()
+  sectionId: string;
 }
 

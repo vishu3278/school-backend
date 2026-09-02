@@ -9,6 +9,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 
 import { Grade } from '../grades/grade.entity';
+import { Section } from '../sections/section.entity';
 
 import { CreateStudentDto } from './dto/create-student.dto';
 import { UpdateStudentDto } from './dto/update-student.dto';
@@ -49,6 +50,9 @@ export class StudentsService {
 
     @InjectRepository(Grade)
     private readonly gradeRepository: Repository<Grade>,
+
+    @InjectRepository(Section)
+    private readonly sectionRepository: Repository<Section>,
   ) {}
 
   async findAll(): Promise<Student[]> {
@@ -94,6 +98,7 @@ export class StudentsService {
       aadharNo,
       religion,
       gradeId,
+      sectionId,
     } = createStudentDto;
 
     const nextAdmissionNo =
@@ -121,6 +126,23 @@ export class StudentsService {
       throw new NotFoundException('Grade not found');
     }
 
+    const section = await this.sectionRepository.findOne({
+      where: {
+        id: sectionId,
+      },
+      relations: {
+        grade: true,
+      },
+    });
+
+    if (!section) {
+      throw new NotFoundException('Section not found');
+    }
+
+    if (section.grade.id !== gradeId) {
+      throw new ConflictException('Section does not belong to the selected grade');
+    }
+
     const student = this.studentRepository.create({
       admissionNo: nextAdmissionNo,
       firstName,
@@ -137,6 +159,7 @@ export class StudentsService {
       aadharNo: aadharNo || null,
       religion: religion || null,
       grade,
+      section,
     });
 
     return this.studentRepository.save(student);
@@ -164,6 +187,24 @@ export class StudentsService {
       }
 
       student.grade = grade;
+    }
+
+    if (updateStudentDto.sectionId) {
+      const section = await this.sectionRepository.findOne({
+        where: { id: updateStudentDto.sectionId },
+        relations: { grade: true },
+      });
+
+      if (!section) {
+        throw new NotFoundException('Section not found');
+      }
+
+      const selectedGradeId = updateStudentDto.gradeId ?? student.grade?.id;
+      if (selectedGradeId && section.grade.id !== selectedGradeId) {
+        throw new ConflictException('Section does not belong to the selected grade');
+      }
+
+      student.section = section;
     }
 
     Object.assign(student, {
