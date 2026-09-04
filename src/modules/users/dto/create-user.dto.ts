@@ -1,5 +1,6 @@
 import {
   IsEmail,
+  IsBoolean,
   IsEnum,
   Matches,
   IsOptional,
@@ -29,6 +30,10 @@ export class CreateUserDto {
 
   @IsEnum(UserRole)
   role: UserRole;
+
+  @IsOptional()
+  @IsBoolean()
+  isActive?: boolean;
 
   @IsOptional()
   @IsString()

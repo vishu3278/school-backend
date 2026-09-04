@@ -5,10 +5,12 @@ import {
 } from '@nestjs/common';
 
 import { InjectRepository } from '@nestjs/typeorm';
+import * as bcrypt from 'bcryptjs';
 
 import { Repository } from 'typeorm';
 
 import { Grade } from '../grades/grade.entity';
+import { Section } from '../sections/section.entity';
 
 import { CreateStudentDto } from './dto/create-student.dto';
 import { UpdateStudentDto } from './dto/update-student.dto';
@@ -49,12 +51,16 @@ export class StudentsService {
 
     @InjectRepository(Grade)
     private readonly gradeRepository: Repository<Grade>,
+
+    @InjectRepository(Section)
+    private readonly sectionRepository: Repository<Section>,
   ) {}
 
   async findAll(): Promise<Student[]> {
     return this.studentRepository.find({
       relations: {
         grade: true,
+        section: true,
       },
       order: {
         createdAt: 'DESC',
@@ -67,6 +73,7 @@ export class StudentsService {
       where: { id },
       relations: {
         grade: true,
+        section: true,
       },
     });
 
@@ -75,6 +82,16 @@ export class StudentsService {
     }
 
     return student;
+  }
+
+  async findByEmail(email: string): Promise<Student | null> {
+    return this.studentRepository.findOne({
+      where: { email: email.trim().toLowerCase() },
+    });
+  }
+
+  async updatePasswordHash(id: string, passwordHash: string): Promise<void> {
+    await this.studentRepository.update(id, { password: passwordHash });
   }
 
   async create(createStudentDto: CreateStudentDto): Promise<Student> {
@@ -94,6 +111,7 @@ export class StudentsService {
       aadharNo,
       religion,
       gradeId,
+      sectionId,
     } = createStudentDto;
 
     const nextAdmissionNo =
@@ -121,6 +139,23 @@ export class StudentsService {
       throw new NotFoundException('Grade not found');
     }
 
+    const section = await this.sectionRepository.findOne({
+      where: {
+        id: sectionId,
+      },
+      relations: {
+        grade: true,
+      },
+    });
+
+    if (!section) {
+      throw new NotFoundException('Section not found');
+    }
+
+    if (section.grade.id !== gradeId) {
+      throw new ConflictException('Section does not belong to the selected grade');
+    }
+
     const student = this.studentRepository.create({
       admissionNo: nextAdmissionNo,
       firstName,
@@ -129,14 +164,19 @@ export class StudentsService {
       gender: gender || null,
       phone: phone || null,
       phone2: phone2 || null,
-      email: email || null,
+      email: email ? email.trim().toLowerCase() : null,
       address: address || null,
-      password: password && password.trim() ? password.trim() : nextAdmissionNo,
+      password: await bcrypt.hash(
+        password && password.trim() ? password.trim() : nextAdmissionNo,
+        10,
+      ),
+      isActive: createStudentDto.isActive ?? true,
       motherName: motherName || null,
       fatherName: fatherName || null,
       aadharNo: aadharNo || null,
       religion: religion || null,
       grade,
+      section,
     });
 
     return this.studentRepository.save(student);
@@ -147,6 +187,7 @@ export class StudentsService {
       where: { id },
       relations: {
         grade: true,
+        section: true,
       },
     });
 
@@ -166,6 +207,24 @@ export class StudentsService {
       student.grade = grade;
     }
 
+    if (updateStudentDto.sectionId) {
+      const section = await this.sectionRepository.findOne({
+        where: { id: updateStudentDto.sectionId },
+        relations: { grade: true },
+      });
+
+      if (!section) {
+        throw new NotFoundException('Section not found');
+      }
+
+      const selectedGradeId = updateStudentDto.gradeId ?? student.grade?.id;
+      if (selectedGradeId && section.grade.id !== selectedGradeId) {
+        throw new ConflictException('Section does not belong to the selected grade');
+      }
+
+      student.section = section;
+    }
+
     Object.assign(student, {
       admissionNo: student.admissionNo,
       firstName: updateStudentDto.firstName ?? student.firstName,
@@ -174,12 +233,15 @@ export class StudentsService {
       gender: updateStudentDto.gender ?? student.gender,
       phone: updateStudentDto.phone ?? student.phone,
       phone2: updateStudentDto.phone2 ?? student.phone2,
-      email: updateStudentDto.email ?? student.email,
+      email: updateStudentDto.email
+        ? updateStudentDto.email.trim().toLowerCase()
+        : student.email,
       address: updateStudentDto.address ?? student.address,
       password:
         updateStudentDto.password && updateStudentDto.password.trim()
-          ? updateStudentDto.password.trim()
+          ? await bcrypt.hash(updateStudentDto.password.trim(), 10)
           : student.password,
+      isActive: updateStudentDto.isActive ?? student.isActive,
       motherName: updateStudentDto.motherName ?? student.motherName,
       fatherName: updateStudentDto.fatherName ?? student.fatherName,
       aadharNo: updateStudentDto.aadharNo ?? student.aadharNo,

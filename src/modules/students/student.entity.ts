@@ -4,12 +4,12 @@ import {
   Entity,
   JoinColumn,
   ManyToOne,
-  OneToOne,
   PrimaryGeneratedColumn,
   UpdateDateColumn,
 } from 'typeorm';
 
 import { Grade } from '../grades/grade.entity';
+import { Section } from '../sections/section.entity';
 import { User } from '../users/user.entity';
 
 export enum Religion {
@@ -96,6 +96,13 @@ export class Student {
   password: string | null;
 
   @Column({
+    name: 'is_active',
+    type: 'boolean',
+    default: true,
+  })
+  isActive: boolean;
+
+  @Column({
     name: 'mother_name',
     type: 'varchar',
     length: 100,
@@ -134,6 +141,14 @@ export class Student {
     name: 'grade_id',
   })
   grade: Grade;
+
+  @ManyToOne(() => Section, (section) => section.students, {
+    nullable: false,
+  })
+  @JoinColumn({
+    name: 'section_id',
+  })
+  section: Section;
 
   @ManyToOne(() => User, {
     nullable: true,

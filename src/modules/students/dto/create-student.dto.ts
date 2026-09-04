@@ -2,6 +2,7 @@ import { Transform } from 'class-transformer';
 
 import {
   IsDateString,
+  IsBoolean,
   IsEmail,
   IsEnum,
   IsOptional,
@@ -17,6 +18,11 @@ export enum Gender {
 }
 
 export class CreateStudentDto {
+  @Transform(({ value }) => value === undefined ? value : value === 'true' || value === true)
+  @IsOptional()
+  @IsBoolean()
+  isActive?: boolean;
+
   @Transform(({ value }) => (typeof value === 'string' && value.trim() === '' ? undefined : value))
   @IsOptional()
   @IsString()
@@ -85,5 +91,8 @@ export class CreateStudentDto {
 
   @IsUUID()
   gradeId: string;
+
+  @IsUUID()
+  sectionId: string;
 }
 

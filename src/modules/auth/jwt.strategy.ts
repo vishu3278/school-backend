@@ -1,12 +1,16 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { PassportStrategy } from '@nestjs/passport';
 import { ExtractJwt, Strategy } from 'passport-jwt';
 
 import { UsersService } from '../users/users.service';
+import { StudentsService } from '../students/students.service';
 
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {
-  constructor(private readonly usersService: UsersService) {
+  constructor(
+    private readonly usersService: UsersService,
+    private readonly studentsService: StudentsService,
+  ) {
     super({
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
       ignoreExpiration: false,
@@ -14,11 +18,31 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     });
   }
 
-  async validate(payload: { sub: string; email: string; role: string }) {
+  async validate(payload: { sub: string; email: string; role: string; accountType?: string }) {
+    if (payload.accountType === 'student') {
+      const student = await this.studentsService.findOne(payload.sub);
+
+      if (!student.isActive) {
+        throw new UnauthorizedException('Student account is inactive');
+      }
+
+      return {
+        id: student.id,
+        email: student.email,
+        role: 'student',
+      };
+    }
+
+    const user = await this.usersService.findOne(payload.sub);
+
+    if (!user.isActive) {
+      throw new UnauthorizedException('User account is inactive');
+    }
+
     return {
-      id: payload.sub,
-      email: payload.email,
-      role: payload.role,
+      id: user.id,
+      email: user.email,
+      role: user.role,
     };
   }
 }
