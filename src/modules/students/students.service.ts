@@ -5,6 +5,7 @@ import {
 } from '@nestjs/common';
 
 import { InjectRepository } from '@nestjs/typeorm';
+import * as bcrypt from 'bcryptjs';
 
 import { Repository } from 'typeorm';
 
@@ -59,6 +60,7 @@ export class StudentsService {
     return this.studentRepository.find({
       relations: {
         grade: true,
+        section: true,
       },
       order: {
         createdAt: 'DESC',
@@ -71,6 +73,7 @@ export class StudentsService {
       where: { id },
       relations: {
         grade: true,
+        section: true,
       },
     });
 
@@ -79,6 +82,16 @@ export class StudentsService {
     }
 
     return student;
+  }
+
+  async findByEmail(email: string): Promise<Student | null> {
+    return this.studentRepository.findOne({
+      where: { email: email.trim().toLowerCase() },
+    });
+  }
+
+  async updatePasswordHash(id: string, passwordHash: string): Promise<void> {
+    await this.studentRepository.update(id, { password: passwordHash });
   }
 
   async create(createStudentDto: CreateStudentDto): Promise<Student> {
@@ -151,9 +164,13 @@ export class StudentsService {
       gender: gender || null,
       phone: phone || null,
       phone2: phone2 || null,
-      email: email || null,
+      email: email ? email.trim().toLowerCase() : null,
       address: address || null,
-      password: password && password.trim() ? password.trim() : nextAdmissionNo,
+      password: await bcrypt.hash(
+        password && password.trim() ? password.trim() : nextAdmissionNo,
+        10,
+      ),
+      isActive: createStudentDto.isActive ?? true,
       motherName: motherName || null,
       fatherName: fatherName || null,
       aadharNo: aadharNo || null,
@@ -170,6 +187,7 @@ export class StudentsService {
       where: { id },
       relations: {
         grade: true,
+        section: true,
       },
     });
 
@@ -215,12 +233,15 @@ export class StudentsService {
       gender: updateStudentDto.gender ?? student.gender,
       phone: updateStudentDto.phone ?? student.phone,
       phone2: updateStudentDto.phone2 ?? student.phone2,
-      email: updateStudentDto.email ?? student.email,
+      email: updateStudentDto.email
+        ? updateStudentDto.email.trim().toLowerCase()
+        : student.email,
       address: updateStudentDto.address ?? student.address,
       password:
         updateStudentDto.password && updateStudentDto.password.trim()
-          ? updateStudentDto.password.trim()
+          ? await bcrypt.hash(updateStudentDto.password.trim(), 10)
           : student.password,
+      isActive: updateStudentDto.isActive ?? student.isActive,
       motherName: updateStudentDto.motherName ?? student.motherName,
       fatherName: updateStudentDto.fatherName ?? student.fatherName,
       aadharNo: updateStudentDto.aadharNo ?? student.aadharNo,

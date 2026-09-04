@@ -96,6 +96,13 @@ export class Student {
   password: string | null;
 
   @Column({
+    name: 'is_active',
+    type: 'boolean',
+    default: true,
+  })
+  isActive: boolean;
+
+  @Column({
     name: 'mother_name',
     type: 'varchar',
     length: 100,
