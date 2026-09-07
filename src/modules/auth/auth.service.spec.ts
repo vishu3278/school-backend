@@ -78,7 +78,7 @@ describe('AuthService', () => {
     expect(result).toMatchObject({ email: 'admin@example.com', role: 'admin' });
   });
 
-  it('should not authenticate an inactive user', async () => {
+  it('should reject an inactive user with a clear message', async () => {
     usersService.findByEmail.mockResolvedValue({
       id: 'user-1',
       email: 'admin@example.com',
@@ -87,8 +87,8 @@ describe('AuthService', () => {
       isActive: false,
     });
 
-    const result = await service.validateUser('admin@example.com', 'password');
-
-    expect(result).toBeNull();
+    await expect(service.validateUser('admin@example.com', 'password')).rejects.toThrow(
+      'This account is inactive. Please contact an administrator.',
+    );
   });
 });

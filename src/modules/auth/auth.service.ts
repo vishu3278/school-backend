@@ -24,18 +24,34 @@ export class AuthService {
   async validateUser(email: string, password: string): Promise<AuthenticatedUser | null> {
     const user = await this.usersService.findByEmail(email.trim().toLowerCase());
 
-    if (user && user.isActive && await this.comparePasswords(password, user.password)) {
-      return {
-        id: user.id,
-        email: user.email,
-        role: user.role,
-        accountType: 'user',
-      };
+    if (user) {
+      if (!user.isActive) {
+        throw new UnauthorizedException('This account is inactive. Please contact an administrator.');
+      }
+
+      if (await this.comparePasswords(password, user.password)) {
+        return {
+          id: user.id,
+          email: user.email,
+          role: user.role,
+          accountType: 'user',
+        };
+      }
+
+      return null;
     }
 
     const student = await this.studentsService.findByEmail(email);
 
-    if (!student || !student.isActive || !student.password) {
+    if (!student) {
+      return null;
+    }
+
+    if (!student.isActive) {
+      throw new UnauthorizedException('This account is inactive. Please contact an administrator.');
+    }
+
+    if (!student.password) {
       return null;
     }
 

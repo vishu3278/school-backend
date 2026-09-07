@@ -1,5 +1,6 @@
 import {
   ConflictException,
+  ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -7,17 +8,20 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import * as bcrypt from 'bcryptjs';
 
-import { Repository } from 'typeorm';
+import { In, Repository } from 'typeorm';
 
 import { Grade } from '../grades/grade.entity';
 import { Section } from '../sections/section.entity';
+import { SectionTeacher } from '../section-teachers/section-teacher.entity';
 
 import { CreateStudentDto } from './dto/create-student.dto';
 import { UpdateStudentDto } from './dto/update-student.dto';
 
 import { Student } from './student.entity';
 
-async function generateAdmissionNumber(repository: Repository<Student>): Promise<string> {
+async function generateAdmissionNumber(
+  repository: Repository<Student>,
+): Promise<string> {
   const now = new Date();
   const month = String(now.getMonth() + 1).padStart(2, '0');
   const year = String(now.getFullYear()).slice(-2);
@@ -54,10 +58,20 @@ export class StudentsService {
 
     @InjectRepository(Section)
     private readonly sectionRepository: Repository<Section>,
+
+    @InjectRepository(SectionTeacher)
+    private readonly sectionTeacherRepository: Repository<SectionTeacher>,
   ) {}
 
-  async findAll(): Promise<Student[]> {
+  async findAll(teacherId?: string): Promise<Student[]> {
+    const assignedSectionIds = teacherId
+      ? await this.findAssignedSectionIds(teacherId)
+      : undefined;
+
     return this.studentRepository.find({
+      ...(assignedSectionIds && {
+        where: { section: { id: In(assignedSectionIds) } },
+      }),
       relations: {
         grade: true,
         section: true,
@@ -68,7 +82,7 @@ export class StudentsService {
     });
   }
 
-  async findOne(id: string): Promise<Student> {
+  async findOne(id: string, teacherId?: string): Promise<Student> {
     const student = await this.studentRepository.findOne({
       where: { id },
       relations: {
@@ -81,7 +95,40 @@ export class StudentsService {
       throw new NotFoundException('Student not found');
     }
 
+    if (teacherId) {
+      await this.assertTeacherCanAccessSection(teacherId, student.section?.id);
+    }
+
     return student;
+  }
+
+  private async findAssignedSectionIds(teacherId: string): Promise<string[]> {
+    const assignments = await this.sectionTeacherRepository.find({
+      where: { teacher: { id: teacherId } },
+      relations: { section: true },
+    });
+
+    return assignments.map((assignment) => assignment.section.id);
+  }
+
+  private async assertTeacherCanAccessSection(
+    teacherId: string,
+    sectionId?: string,
+  ): Promise<void> {
+    if (!sectionId) {
+      throw new ForbiddenException('You do not have access to this student');
+    }
+
+    const assignment = await this.sectionTeacherRepository.findOne({
+      where: {
+        teacher: { id: teacherId },
+        section: { id: sectionId },
+      },
+    });
+
+    if (!assignment) {
+      throw new ForbiddenException('You do not have access to this student');
+    }
   }
 
   async findByEmail(email: string): Promise<Student | null> {
@@ -153,7 +200,9 @@ export class StudentsService {
     }
 
     if (section.grade.id !== gradeId) {
-      throw new ConflictException('Section does not belong to the selected grade');
+      throw new ConflictException(
+        'Section does not belong to the selected grade',
+      );
     }
 
     const student = this.studentRepository.create({
@@ -182,7 +231,10 @@ export class StudentsService {
     return this.studentRepository.save(student);
   }
 
-  async update(id: string, updateStudentDto: UpdateStudentDto): Promise<Student> {
+  async update(
+    id: string,
+    updateStudentDto: UpdateStudentDto,
+  ): Promise<Student> {
     const student = await this.studentRepository.findOne({
       where: { id },
       relations: {
@@ -219,7 +271,9 @@ export class StudentsService {
 
       const selectedGradeId = updateStudentDto.gradeId ?? student.grade?.id;
       if (selectedGradeId && section.grade.id !== selectedGradeId) {
-        throw new ConflictException('Section does not belong to the selected grade');
+        throw new ConflictException(
+          'Section does not belong to the selected grade',
+        );
       }
 
       student.section = section;
