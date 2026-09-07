@@ -26,9 +26,10 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
         throw new UnauthorizedException('Student account is inactive');
       }
 
+      const { password, isActive, ...profile } = student;
+
       return {
-        id: student.id,
-        email: student.email,
+        ...profile,
         role: 'student',
       };
     }
@@ -39,10 +40,10 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       throw new UnauthorizedException('User account is inactive');
     }
 
+    const { password, isActive, ...profile } = user;
+
     return {
-      id: user.id,
-      email: user.email,
-      role: user.role,
+      ...profile,
     };
   }
 }

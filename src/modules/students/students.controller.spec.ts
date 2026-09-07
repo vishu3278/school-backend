@@ -26,13 +26,27 @@ describe('StudentsController', () => {
     const students = [{ id: 'student-1' }];
     service.findAll.mockResolvedValue(students);
 
-    await expect(controller.findAll()).resolves.toEqual(students);
+    await expect(
+      controller.findAll({ user: { id: 'admin-1', role: 'admin' } }),
+    ).resolves.toEqual(students);
+    expect(service.findAll).toHaveBeenCalledWith(undefined);
   });
 
   it('should return a single student by id', async () => {
     const student = { id: 'student-1' };
     service.findOne.mockResolvedValue(student);
 
-    await expect(controller.findOne('student-1')).resolves.toEqual(student);
+    await expect(
+      controller.findOne('student-1', {
+        user: { id: 'admin-1', role: 'admin' },
+      }),
+    ).resolves.toEqual(student);
+    expect(service.findOne).toHaveBeenCalledWith('student-1', undefined);
+  });
+
+  it('limits a teacher request to that teacher assignments', async () => {
+    await controller.findAll({ user: { id: 'teacher-1', role: 'teacher' } });
+
+    expect(service.findAll).toHaveBeenCalledWith('teacher-1');
   });
 });
