@@ -4,11 +4,13 @@ import {
   Entity,
   JoinColumn,
   ManyToOne,
+  OneToOne,
   PrimaryGeneratedColumn,
   UpdateDateColumn,
 } from 'typeorm';
 
 import { Grade } from '../grades/grade.entity';
+import { Religion, Student } from '../students/student.entity';
 
 export enum AdmissionStatus {
   DRAFT = 'DRAFT',
@@ -61,6 +63,12 @@ export class AdmissionApplication {
   @Column({ name: 'mother_occupation', type: 'varchar', length: 100, nullable: true })
   motherOccupation: string | null;
 
+  @Column({ type: 'varchar', length: 30, nullable: true })
+  religion: Religion | null;
+
+  @Column({ type: 'text', nullable: true })
+  address: string | null;
+
   @Column({ name: 'phone1', type: 'varchar', length: 20, nullable: true })
   phone1: string | null;
 
@@ -100,6 +108,10 @@ export class AdmissionApplication {
 
   @Column({ type: 'varchar', length: 20, default: AdmissionStatus.DRAFT })
   status: AdmissionStatus;
+
+  @OneToOne(() => Student, { nullable: true, onDelete: 'SET NULL' })
+  @JoinColumn({ name: 'student_id' })
+  student: Student | null;
 
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;
