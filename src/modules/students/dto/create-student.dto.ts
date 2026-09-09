@@ -82,6 +82,26 @@ export class CreateStudentDto {
   @Transform(({ value }) => (typeof value === 'string' && value.trim() === '' ? undefined : value))
   @IsOptional()
   @IsString()
+  fatherAadharNo?: string;
+
+  @Transform(({ value }) => (typeof value === 'string' && value.trim() === '' ? undefined : value))
+  @IsOptional()
+  @IsString()
+  motherAadharNo?: string;
+
+  @Transform(({ value }) => (typeof value === 'string' && value.trim() === '' ? undefined : value))
+  @IsOptional()
+  @IsString()
+  fatherOccupation?: string;
+
+  @Transform(({ value }) => (typeof value === 'string' && value.trim() === '' ? undefined : value))
+  @IsOptional()
+  @IsString()
+  motherOccupation?: string;
+
+  @Transform(({ value }) => (typeof value === 'string' && value.trim() === '' ? undefined : value))
+  @IsOptional()
+  @IsString()
   aadharNo?: string;
 
   @Transform(({ value }) => (typeof value === 'string' && value.trim() === '' ? undefined : value))

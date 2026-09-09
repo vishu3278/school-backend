@@ -118,6 +118,18 @@ export class Student {
   })
   fatherName: string | null;
 
+  @Column({ name: 'father_aadhar_no', type: 'varchar', length: 20, nullable: true })
+  fatherAadharNo: string | null;
+
+  @Column({ name: 'mother_aadhar_no', type: 'varchar', length: 20, nullable: true })
+  motherAadharNo: string | null;
+
+  @Column({ name: 'father_occupation', type: 'varchar', length: 100, nullable: true })
+  fatherOccupation: string | null;
+
+  @Column({ name: 'mother_occupation', type: 'varchar', length: 100, nullable: true })
+  motherOccupation: string | null;
+
   @Column({
     name: 'aadhar_no',
     type: 'varchar',
@@ -143,12 +155,12 @@ export class Student {
   grade: Grade;
 
   @ManyToOne(() => Section, (section) => section.students, {
-    nullable: false,
+    nullable: true,
   })
   @JoinColumn({
     name: 'section_id',
   })
-  section: Section;
+  section: Section | null;
 
   @ManyToOne(() => User, {
     nullable: true,

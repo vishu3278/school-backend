@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ConflictException,
   ForbiddenException,
   Injectable,
@@ -155,6 +156,10 @@ export class StudentsService {
       password,
       motherName,
       fatherName,
+      fatherAadharNo,
+      motherAadharNo,
+      fatherOccupation,
+      motherOccupation,
       aadharNo,
       religion,
       gradeId,
@@ -186,14 +191,12 @@ export class StudentsService {
       throw new NotFoundException('Grade not found');
     }
 
-    const section = await this.sectionRepository.findOne({
-      where: {
-        id: sectionId,
-      },
-      relations: {
-        grade: true,
-      },
-    });
+    const section = sectionId
+      ? await this.sectionRepository.findOne({
+          where: { id: sectionId },
+          relations: { grade: true },
+        })
+      : null;
 
     if (!section) {
       throw new NotFoundException('Section not found');
@@ -222,6 +225,10 @@ export class StudentsService {
       isActive: createStudentDto.isActive ?? true,
       motherName: motherName || null,
       fatherName: fatherName || null,
+      fatherAadharNo: fatherAadharNo || null,
+      motherAadharNo: motherAadharNo || null,
+      fatherOccupation: fatherOccupation || null,
+      motherOccupation: motherOccupation || null,
       aadharNo: aadharNo || null,
       religion: religion || null,
       grade,
@@ -279,6 +286,12 @@ export class StudentsService {
       student.section = section;
     }
 
+    if (updateStudentDto.isActive === true && !student.section) {
+      throw new BadRequestException(
+        'A section must be assigned before activating a student',
+      );
+    }
+
     Object.assign(student, {
       admissionNo: student.admissionNo,
       firstName: updateStudentDto.firstName ?? student.firstName,
@@ -298,6 +311,10 @@ export class StudentsService {
       isActive: updateStudentDto.isActive ?? student.isActive,
       motherName: updateStudentDto.motherName ?? student.motherName,
       fatherName: updateStudentDto.fatherName ?? student.fatherName,
+      fatherAadharNo: updateStudentDto.fatherAadharNo ?? student.fatherAadharNo,
+      motherAadharNo: updateStudentDto.motherAadharNo ?? student.motherAadharNo,
+      fatherOccupation: updateStudentDto.fatherOccupation ?? student.fatherOccupation,
+      motherOccupation: updateStudentDto.motherOccupation ?? student.motherOccupation,
       aadharNo: updateStudentDto.aadharNo ?? student.aadharNo,
       religion: updateStudentDto.religion ?? student.religion,
     });

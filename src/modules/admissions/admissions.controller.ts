@@ -23,16 +23,17 @@ export class AdmissionsController {
 
   @Post()
   @Roles(UserRole.ADMIN, UserRole.TEACHER)
-  create(
-    @Body() dto: CreateAdmissionApplicationDto,
-    @Req() req: { user: { role: UserRole } },
-  ) {
-    return this.admissionsService.create(dto, req.user.role === UserRole.TEACHER);
+  create(@Body() dto: CreateAdmissionApplicationDto) {
+    return this.admissionsService.create(dto);
   }
 
   @Put(':id')
-  @Roles(UserRole.ADMIN)
-  update(@Param('id') id: string, @Body() dto: UpdateAdmissionApplicationDto) {
-    return this.admissionsService.update(id, dto);
+  @Roles(UserRole.ADMIN, UserRole.TEACHER)
+  update(
+    @Param('id') id: string,
+    @Body() dto: UpdateAdmissionApplicationDto,
+    @Req() req: { user: { role: UserRole } },
+  ) {
+    return this.admissionsService.update(id, dto, req.user.role);
   }
 }

@@ -10,6 +10,7 @@ import {
 } from 'class-validator';
 
 import { Gender } from '../../students/dto/create-student.dto';
+import { Religion } from '../../students/student.entity';
 import { AdmissionStatus } from '../admission-application.entity';
 
 const optionalString = ({ value }: { value: unknown }) =>
@@ -63,6 +64,16 @@ export class CreateAdmissionApplicationDto {
   @IsOptional()
   @IsString()
   motherOccupation?: string;
+
+  @Transform(optionalString)
+  @IsOptional()
+  @IsEnum(Religion)
+  religion?: Religion;
+
+  @Transform(optionalString)
+  @IsOptional()
+  @IsString()
+  address?: string;
 
   @Transform(optionalString)
   @IsOptional()
