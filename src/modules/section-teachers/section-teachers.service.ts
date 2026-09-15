@@ -9,6 +9,7 @@ import { Repository } from 'typeorm';
 import { Section } from '../sections/section.entity';
 import { UserRole } from '../users/user-role.enum';
 import { User } from '../users/user.entity';
+import { AcademicYearsService } from '../academic-years/academic-years.service';
 
 import { CreateSectionTeacherDto } from './dto/create-section-teacher.dto';
 import { UpdateSectionTeacherDto } from './dto/update-section-teacher.dto';
@@ -25,6 +26,7 @@ export class SectionTeachersService {
 
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
+    private readonly academicYearsService: AcademicYearsService,
   ) {}
 
   async findAll(): Promise<SectionTeacher[]> {
@@ -61,6 +63,7 @@ export class SectionTeachersService {
 
   async create(createSectionTeacherDto: CreateSectionTeacherDto): Promise<SectionTeacher> {
     const { sectionId, teacherId, academicYear, isClassTeacher } = createSectionTeacherDto;
+    await this.academicYearsService.ensureExists(academicYear);
 
     const section = await this.sectionRepository.findOne({
       where: { id: sectionId },
@@ -146,6 +149,7 @@ export class SectionTeachersService {
     }
 
     if (updateSectionTeacherDto.academicYear) {
+      await this.academicYearsService.ensureExists(updateSectionTeacherDto.academicYear);
       assignment.academicYear = updateSectionTeacherDto.academicYear;
     }
 

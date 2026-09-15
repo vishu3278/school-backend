@@ -8,6 +8,7 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, Repository } from 'typeorm';
 
+import { AcademicYearsService } from '../academic-years/academic-years.service';
 import { Grade } from '../grades/grade.entity';
 import { Student } from '../students/student.entity';
 import { UserRole } from '../users/user-role.enum';
@@ -36,15 +37,6 @@ async function generateApplicationNumber(
   return `${prefix}${String(maxNumber + 1).padStart(3, '0')}`;
 }
 
-function allowedAcademicYears(): string[] {
-  const now = new Date();
-  const currentStartYear = now.getFullYear() - (now.getMonth() < 3 ? 1 : 0);
-  return [-2, -1, 0, 1].map((offset) => {
-    const year = currentStartYear + offset;
-    return `${year}-${String(year + 1).slice(-2)}`;
-  });
-}
-
 const ALLOWED_STATUS_TRANSITIONS: Partial<
   Record<AdmissionStatus, AdmissionStatus[]>
 > = {
@@ -69,6 +61,7 @@ export class AdmissionsService {
     @InjectRepository(Grade)
     private readonly gradeRepository: Repository<Grade>,
     private readonly dataSource: DataSource,
+    private readonly academicYearsService: AcademicYearsService,
   ) {}
 
   findAll(): Promise<AdmissionApplication[]> {
@@ -88,9 +81,7 @@ export class AdmissionsService {
   }
 
   async create(dto: CreateAdmissionApplicationDto): Promise<AdmissionApplication> {
-    if (!allowedAcademicYears().includes(dto.academicYear)) {
-      throw new BadRequestException('Academic year must be within the allowed range');
-    }
+    await this.academicYearsService.ensureExists(dto.academicYear);
 
     const requestedGrade = await this.gradeRepository.findOne({
       where: { id: dto.requestedGradeId },
@@ -167,9 +158,7 @@ export class AdmissionsService {
       }
     }
 
-    if (dto.academicYear && !allowedAcademicYears().includes(dto.academicYear)) {
-      throw new BadRequestException('Academic year must be within the allowed range');
-    }
+    if (dto.academicYear) await this.academicYearsService.ensureExists(dto.academicYear);
 
     if (dto.requestedGradeId) {
       const requestedGrade = await this.gradeRepository.findOne({
