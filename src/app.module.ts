@@ -3,6 +3,7 @@ import { ConfigModule } from '@nestjs/config';
 
 import { AuthModule } from './modules/auth/auth.module';
 import { AdmissionsModule } from './modules/admissions/admissions.module';
+import { SubjectsModule } from './modules/subjects/subjects.module';
 import { AcademicYearsModule } from './modules/academic-years/academic-years.module';
 import { DatabaseModule } from './database/database.module';
 import { GradesModule } from './modules/grades/grades.module';
@@ -21,6 +22,7 @@ import { UsersModule } from './modules/users/users.module';
     AdmissionsModule,
     StudentsModule,
     GradesModule,
+    SubjectsModule,
     SectionsModule,
     SectionTeachersModule,
     UsersModule,
