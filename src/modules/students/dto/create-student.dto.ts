@@ -28,6 +28,11 @@ export class CreateStudentDto {
   @IsString()
   admissionNo?: string;
 
+  @Transform(({ value }) => (typeof value === 'string' && value.trim() === '' ? undefined : value))
+  @IsOptional()
+  @IsString()
+  rollNo?: string;
+
   @IsString()
   firstName: string;
 

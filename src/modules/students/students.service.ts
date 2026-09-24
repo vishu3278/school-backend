@@ -145,6 +145,7 @@ export class StudentsService {
   async create(createStudentDto: CreateStudentDto): Promise<Student> {
     const {
       admissionNo,
+      rollNo,
       firstName,
       lastName,
       dateOfBirth,
@@ -210,6 +211,7 @@ export class StudentsService {
 
     const student = this.studentRepository.create({
       admissionNo: nextAdmissionNo,
+      rollNo: rollNo || null,
       firstName,
       lastName,
       dateOfBirth: dateOfBirth || null,
@@ -294,6 +296,7 @@ export class StudentsService {
 
     Object.assign(student, {
       admissionNo: student.admissionNo,
+      rollNo: updateStudentDto.rollNo ?? student.rollNo,
       firstName: updateStudentDto.firstName ?? student.firstName,
       lastName: updateStudentDto.lastName ?? student.lastName,
       dateOfBirth: updateStudentDto.dateOfBirth ?? student.dateOfBirth,

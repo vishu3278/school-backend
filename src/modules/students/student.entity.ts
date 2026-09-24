@@ -35,6 +35,14 @@ export class Student {
   admissionNo: string;
 
   @Column({
+    name: 'roll_no',
+    type: 'varchar',
+    length: 50,
+    nullable: true,
+  })
+  rollNo: string | null;
+
+  @Column({
     name: 'first_name',
     length: 100,
   })
