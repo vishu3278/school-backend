@@ -133,6 +133,7 @@ CREATE TABLE students (
     id             SERIAL PRIMARY KEY,
     user_id        INT UNIQUE REFERENCES users(id) ON DELETE SET NULL, -- nullable: younger students may not need logins
     admission_no   VARCHAR(30) UNIQUE NOT NULL,
+    roll_no        VARCHAR(50),
     first_name     VARCHAR(100) NOT NULL,
     last_name      VARCHAR(100) NOT NULL,
     dob            DATE NOT NULL,
