@@ -7,6 +7,7 @@ import { SubjectsModule } from './modules/subjects/subjects.module';
 import { AcademicYearsModule } from './modules/academic-years/academic-years.module';
 import { DatabaseModule } from './database/database.module';
 import { GradesModule } from './modules/grades/grades.module';
+import { FeesModule } from './modules/fees/fees.module';
 import { SectionTeachersModule } from './modules/section-teachers/section-teachers.module';
 import { SectionsModule } from './modules/sections/sections.module';
 import { StudentsModule } from './modules/students/students.module';
@@ -25,6 +26,7 @@ import { UsersModule } from './modules/users/users.module';
     SubjectsModule,
     SectionsModule,
     SectionTeachersModule,
+    FeesModule,
     UsersModule,
     AuthModule,
   ],
