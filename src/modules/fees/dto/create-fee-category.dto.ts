@@ -1,4 +1,5 @@
-import { IsOptional, IsString, MaxLength } from 'class-validator';
+import { IsIn, IsOptional, IsString, MaxLength } from 'class-validator';
+import { FeeCategoryCode } from '../fee-category.entity';
 
 export class CreateFeeCategoryDto {
   @IsString()
@@ -8,4 +9,8 @@ export class CreateFeeCategoryDto {
   @IsOptional()
   @IsString()
   description?: string;
+
+  @IsOptional()
+  @IsIn(Object.values(FeeCategoryCode))
+  code?: FeeCategoryCode | null;
 }

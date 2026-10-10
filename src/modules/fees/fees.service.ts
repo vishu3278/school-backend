@@ -13,8 +13,9 @@ import { CreateFeeCategoryDto } from './dto/create-fee-category.dto';
 import { UpdateFeeCategoryDto } from './dto/update-fee-category.dto';
 import { CreateFeeStructureDto } from './dto/create-fee-structure.dto';
 import { UpdateFeeStructureDto } from './dto/update-fee-structure.dto';
-import { FeeCategory } from './fee-category.entity';
+import { FeeCategory, FeeCategoryCode } from './fee-category.entity';
 import { FeeStructure } from './fee-structure.entity';
+import { StudentFeeInvoice } from './student-fee-invoice.entity';
 
 @Injectable()
 export class FeesService {
@@ -27,6 +28,8 @@ export class FeesService {
     private readonly gradeRepository: Repository<Grade>,
     @InjectRepository(AcademicYear)
     private readonly academicYearRepository: Repository<AcademicYear>,
+    @InjectRepository(StudentFeeInvoice)
+    private readonly invoiceRepository: Repository<StudentFeeInvoice>,
   ) {}
 
   // ─── Fee Categories ──────────────────────────────────────────────
@@ -59,6 +62,7 @@ export class FeesService {
     const category = this.feeCategoryRepository.create({
       name,
       description: dto.description?.trim() || null,
+      code: dto.code ?? null,
     });
 
     return this.feeCategoryRepository.save(category);
@@ -84,6 +88,8 @@ export class FeesService {
     if (dto.description !== undefined) {
       category.description = dto.description?.trim() || null;
     }
+
+    if (dto.code !== undefined) category.code = dto.code;
 
     return this.feeCategoryRepository.save(category);
   }
@@ -140,6 +146,9 @@ export class FeesService {
 
     const frequency = (dto.frequency ?? 'annual').trim();
 
+    const category = await this.feeCategoryRepository.findOneByOrFail({ id: dto.feeCategoryId });
+    await this.validateSpecialStructure(category, frequency, dto.dueDay ?? null);
+
     await this.ensureStructureIsAvailable({
       gradeId: dto.gradeId,
       academicYearId: dto.academicYearId,
@@ -154,6 +163,7 @@ export class FeesService {
       amount: dto.amount,
       frequency,
       dueDate: dto.dueDate || null,
+      dueDay: dto.dueDay ?? null,
     });
 
     const saved = await this.feeStructureRepository.save(structure);
@@ -165,6 +175,10 @@ export class FeesService {
     dto: UpdateFeeStructureDto,
   ): Promise<FeeStructure> {
     const structure = await this.findStructure(id);
+
+    if (await this.invoiceRepository.exists({ where: { feeStructure: { id } } })) {
+      throw new ConflictException('A fee structure with generated invoices cannot be changed');
+    }
 
     const gradeId = dto.gradeId ?? structure.grade.id;
     const academicYearId =
@@ -178,6 +192,9 @@ export class FeesService {
       academicYearId,
       feeCategoryId,
     });
+
+    const category = await this.feeCategoryRepository.findOneByOrFail({ id: feeCategoryId });
+    await this.validateSpecialStructure(category, frequency, dto.dueDay ?? structure.dueDay);
 
     await this.ensureStructureIsAvailable(
       {
@@ -212,6 +229,8 @@ export class FeesService {
     if (dto.dueDate !== undefined) {
       structure.dueDate = dto.dueDate || null;
     }
+    if (dto.dueDay !== undefined) structure.dueDay = dto.dueDay;
+
 
     const saved = await this.feeStructureRepository.save(structure);
     return this.findStructure(saved.id);
@@ -224,6 +243,10 @@ export class FeesService {
 
     if (!structure) {
       throw new NotFoundException('Fee structure not found');
+    }
+
+    if (await this.invoiceRepository.exists({ where: { feeStructure: { id } } })) {
+      throw new ConflictException('A fee structure with generated invoices cannot be deleted');
     }
 
     await this.feeStructureRepository.remove(structure);
@@ -256,6 +279,22 @@ export class FeesService {
 
     if (!category) {
       throw new NotFoundException('Fee category not found');
+    }
+
+  }
+
+  private async validateSpecialStructure(
+    category: FeeCategory,
+    frequency?: string,
+    dueDay?: number | null,
+  ): Promise<void> {
+    if (!frequency) return;
+    if (category.code === FeeCategoryCode.ADMISSION && frequency !== 'one_time') {
+      throw new ConflictException('Admission fee structures must use one_time frequency');
+    }
+    if (category.code === FeeCategoryCode.TUITION) {
+      if (frequency !== 'monthly') throw new ConflictException('Tuition fee structures must use monthly frequency');
+      if (!dueDay || dueDay > 28) throw new ConflictException('Tuition fee structures require a due day between 1 and 28');
     }
   }
 

@@ -64,4 +64,7 @@ export class FeeStructure {
     nullable: true,
   })
   dueDate: string | null;
+
+  @Column({ name: 'due_day', type: 'smallint', nullable: true })
+  dueDay: number | null;
 }
