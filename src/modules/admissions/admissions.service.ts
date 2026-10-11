@@ -9,6 +9,8 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, Repository } from 'typeorm';
 
 import { AcademicYearsService } from '../academic-years/academic-years.service';
+import { AcademicYear } from '../academic-years/academic-year.entity';
+import { FeeLedgerService } from '../fees/fee-ledger.service';
 import { Grade } from '../grades/grade.entity';
 import { Student } from '../students/student.entity';
 import { UserRole } from '../users/user-role.enum';
@@ -62,6 +64,7 @@ export class AdmissionsService {
     private readonly gradeRepository: Repository<Grade>,
     private readonly dataSource: DataSource,
     private readonly academicYearsService: AcademicYearsService,
+    private readonly feeLedgerService: FeeLedgerService,
   ) {}
 
   findAll(): Promise<AdmissionApplication[]> {
@@ -262,6 +265,18 @@ export class AdmissionsService {
           section: null,
         });
         application.student = await students.save(student);
+        const academicYear = await manager.getRepository(AcademicYear).findOneBy({
+          name: application.academicYear.trim(),
+        });
+        if (!academicYear) {
+          throw new BadRequestException('Academic year does not exist');
+        }
+        await this.feeLedgerService.createInvoicesForApprovedStudent(
+          manager,
+          application.student,
+          applicationRelations.requestedGrade,
+          academicYear,
+        );
       }
 
       application.status = nextStatus;

@@ -7,6 +7,7 @@ import {
   IsOptional,
   IsUUID,
   Min,
+  Max,
 } from 'class-validator';
 
 export const FEE_FREQUENCIES = ['annual', 'quarterly', 'monthly', 'one_time'];
@@ -37,4 +38,11 @@ export class CreateFeeStructureDto {
   @IsOptional()
   @IsDateString()
   dueDate?: string;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(28)
+  dueDay?: number;
 }

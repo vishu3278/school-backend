@@ -285,6 +285,7 @@ Flow: application submitted → reviewed → approved → on enrollment, a `stud
 CREATE TABLE fee_categories (
     id          SERIAL PRIMARY KEY,
     name        VARCHAR(100) NOT NULL,  -- 'Tuition', 'Transport', 'Lab', 'Library'
+    code        VARCHAR(20) UNIQUE,     -- stable system values: ADMISSION / TUITION; NULL for general fees
     description TEXT
 );
 
@@ -297,34 +298,43 @@ CREATE TABLE fee_structures (
     amount            NUMERIC(10,2) NOT NULL,
     frequency         VARCHAR(20) DEFAULT 'annual', -- annual/quarterly/monthly/one_time
     due_date          DATE,
+    due_day           SMALLINT CHECK (due_day BETWEEN 1 AND 28), -- required for monthly Tuition
     UNIQUE (grade_id, academic_year_id, fee_category_id, frequency)
 );
 
 -- Actual bill generated for a specific student
 CREATE TABLE student_fee_invoices (
-    id                SERIAL PRIMARY KEY,
-    student_id        INT NOT NULL REFERENCES students(id),
+    id                UUID PRIMARY KEY,
+    student_id        UUID NOT NULL REFERENCES students(id),
     fee_structure_id  INT NOT NULL REFERENCES fee_structures(id),
     academic_year_id  INT NOT NULL REFERENCES academic_years(id),
     amount_due        NUMERIC(10,2) NOT NULL,
+    paid_amount       NUMERIC(10,2) NOT NULL DEFAULT 0,
+    fee_category_code VARCHAR(20) NOT NULL,
+    billing_period    DATE, -- first day of billing month; NULL for Admission
     due_date          DATE,
-    status            VARCHAR(20) DEFAULT 'unpaid', -- unpaid/partial/paid/overdue/waived
+    status            VARCHAR(20) DEFAULT 'UNPAID', -- UNPAID/PARTIAL/PAID/VOID; overdue is derived from due_date
     created_at        TIMESTAMP DEFAULT now()
 );
 
 CREATE TABLE fee_payments (
-    id               SERIAL PRIMARY KEY,
-    invoice_id       INT NOT NULL REFERENCES student_fee_invoices(id),
+    id               UUID PRIMARY KEY,
+    invoice_id       UUID NOT NULL REFERENCES student_fee_invoices(id),
+    receipt_no       VARCHAR(50) UNIQUE NOT NULL,
     amount_paid      NUMERIC(10,2) NOT NULL,
     payment_date     DATE DEFAULT CURRENT_DATE,
     payment_mode     VARCHAR(20),   -- cash/card/upi/bank_transfer/cheque
     transaction_ref  VARCHAR(100),
     collected_by     INT REFERENCES users(id),
-    remarks          VARCHAR(255)
+    remarks          VARCHAR(255),
+    status           VARCHAR(20) NOT NULL DEFAULT 'POSTED', -- POSTED/VOIDED
+    voided_by        UUID REFERENCES users(id),
+    voided_at        TIMESTAMP,
+    void_reason      VARCHAR(255)
 );
 ```
 
-`fee_structures` → `student_fee_invoices` is deliberately one-to-many: a structure defines the template ("Grade 5 Tuition = ₹40,000/year"), and an invoice is the actual instance billed to one student (which can be discounted, waived, or partially paid independent of the template). `fee_payments` supports partial payments — sum them against `amount_due` to derive invoice status.
+`fee_structures` → `student_fee_invoices` is deliberately one-to-many. Admission creates one one-time invoice on approval; Tuition creates one invoice for every calendar month overlapping the academic year. `fee_payments` is append-only: posted receipts update the cached paid total atomically, while voided receipts remain available for audit. An invoice is overdue when it has an outstanding balance after its due date.
 
 ---
 
