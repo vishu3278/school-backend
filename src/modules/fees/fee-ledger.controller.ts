@@ -14,6 +14,8 @@ import { Roles } from '../auth/roles.decorator';
 import { RolesGuard } from '../auth/roles.guard';
 import { UserRole } from '../users/user-role.enum';
 import { CreateFeePaymentDto } from './dto/create-fee-payment.dto';
+import { GenerateStudentInvoicesDto } from './dto/generate-student-invoices.dto';
+import { CreateCustomFeeInvoiceDto } from './dto/create-custom-fee-invoice.dto';
 import { VoidFeePaymentDto } from './dto/void-fee-payment.dto';
 import { FeeLedgerService } from './fee-ledger.service';
 @Controller('fee-ledger')
@@ -28,6 +30,30 @@ export class FeeLedgerController {
     @Param('id', ParseUUIDPipe) id: string,
   ) {
     return this.ledger.paymentHistory(id);
+  }
+  @Post('students/:studentId/invoices')
+  generateInvoices(
+    @Param('studentId', ParseUUIDPipe) studentId: string,
+    @Body() dto: GenerateStudentInvoicesDto,
+  ) {
+    return this.ledger.generateInvoicesForStudent(studentId, dto.academicYearId);
+  }
+  @Get('students/:studentId/other-fee-structures')
+  otherFeeStructures(
+    @Param('studentId', ParseUUIDPipe) studentId: string,
+    @Query('academicYearId') academicYearId: string,
+  ) {
+    return this.ledger.availableOtherFeeStructures(
+      studentId,
+      Number(academicYearId),
+    );
+  }
+  @Post('students/:studentId/other-invoices')
+  createOtherInvoice(
+    @Param('studentId', ParseUUIDPipe) studentId: string,
+    @Body() dto: CreateCustomFeeInvoiceDto,
+  ) {
+    return this.ledger.createOtherFeeInvoice(studentId, dto);
   }
   @Post('payments') collect(@Body() dto: CreateFeePaymentDto, @Req() req: any) {
     return this.ledger.collectPayment(dto, req.user.id);

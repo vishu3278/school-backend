@@ -4,7 +4,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { DataSource } from 'typeorm';
+import { DataSource, EntityManager } from 'typeorm';
 import { AcademicYear } from '../academic-years/academic-year.entity';
 import { Grade } from '../grades/grade.entity';
 import { Student } from '../students/student.entity';
@@ -14,6 +14,7 @@ import { FeePayment, PaymentStatus } from './fee-payment.entity';
 import { FeeStructure } from './fee-structure.entity';
 import { InvoiceStatus, StudentFeeInvoice } from './student-fee-invoice.entity';
 import { CreateFeePaymentDto } from './dto/create-fee-payment.dto';
+import { CreateCustomFeeInvoiceDto } from './dto/create-custom-fee-invoice.dto';
 
 const dateOnly = (date: Date) => date.toISOString().slice(0, 10);
 const invoiceStatus = (due: number, paid: number): InvoiceStatus =>
@@ -28,7 +29,7 @@ export class FeeLedgerService {
   constructor(private readonly dataSource: DataSource) {}
 
   async createInvoicesForApprovedStudent(
-    manager: any,
+    manager: EntityManager,
     student: Student,
     grade: Grade,
     academicYear: AcademicYear,
@@ -47,39 +48,157 @@ export class FeeLedgerService {
         s.feeCategory.code === FeeCategoryCode.TUITION &&
         s.frequency === 'monthly',
     );
-    if (!admission || !tuition || !tuition.dueDay)
-      throw new ConflictException(
-        'Admission and monthly tuition fee structures must be configured for the selected grade and academic year',
+    const missingConfiguration: string[] = [];
+    if (!admission) {
+      missingConfiguration.push(
+        'an Admission category with a one_time fee structure',
       );
+    }
+    if (!tuition) {
+      missingConfiguration.push(
+        'a Tuition category with a monthly fee structure',
+      );
+    } else if (!tuition.dueDay) {
+      missingConfiguration.push('a monthly Tuition due day (1–28)');
+    }
+    if (missingConfiguration.length) {
+      throw new ConflictException(
+        `Missing fee setup for this grade and academic year: ${missingConfiguration.join(', ')}.`,
+      );
+    }
     const invoices = manager.getRepository(StudentFeeInvoice);
-    await invoices.insert({
-      student,
-      feeStructure: admission,
-      academicYear,
-      feeCategoryCode: FeeCategoryCode.ADMISSION,
-      amountDue: admission.amount,
-      paidAmount: 0,
-      billingPeriod: null,
-      dueDate: admission.dueDate ?? academicYear.startDate,
-      status: InvoiceStatus.UNPAID,
+    const hasAdmissionInvoice = await invoices.exists({
+      where: {
+        student: { id: student.id },
+        academicYear: { id: academicYear.id },
+        feeCategoryCode: FeeCategoryCode.ADMISSION,
+      },
     });
+    if (!hasAdmissionInvoice) {
+      await invoices.insert({
+        student,
+        feeStructure: admission!,
+        academicYear,
+        feeCategoryCode: FeeCategoryCode.ADMISSION,
+        amountDue: admission!.amount,
+        paidAmount: 0,
+        billingPeriod: null,
+        dueDate: admission!.dueDate ?? academicYear.startDate,
+        status: InvoiceStatus.UNPAID,
+      });
+    }
     for (const period of monthsOverlapping(
       academicYear.startDate,
       academicYear.endDate,
     )) {
       const [year, month] = period.split('-').map(Number);
-      await invoices.insert({
+      const billingPeriod = `${period}-01`;
+      const hasTuitionInvoice = await invoices.exists({
+        where: {
+          student: { id: student.id },
+          academicYear: { id: academicYear.id },
+          feeCategoryCode: FeeCategoryCode.TUITION,
+          billingPeriod,
+        },
+      });
+      if (!hasTuitionInvoice) {
+        await invoices.insert({
+          student,
+          feeStructure: tuition!,
+          academicYear,
+          feeCategoryCode: FeeCategoryCode.TUITION,
+          amountDue: tuition!.amount,
+          paidAmount: 0,
+          billingPeriod,
+          dueDate: `${period}-${String(Math.min(tuition!.dueDay!, new Date(Date.UTC(year, month, 0)).getUTCDate())).padStart(2, '0')}`,
+          status: InvoiceStatus.UNPAID,
+        });
+      }
+    }
+  }
+
+  async generateInvoicesForStudent(
+    studentId: string,
+    academicYearId: number,
+  ): Promise<void> {
+    await this.dataSource.transaction(async (manager) => {
+      const student = await manager.getRepository(Student).findOne({
+        where: { id: studentId },
+        relations: { grade: true },
+      });
+      if (!student) throw new NotFoundException('Student not found');
+      const academicYear = await manager
+        .getRepository(AcademicYear)
+        .findOneBy({ id: academicYearId });
+      if (!academicYear) throw new NotFoundException('Academic year not found');
+      await this.createInvoicesForApprovedStudent(
+        manager,
         student,
-        feeStructure: tuition,
+        student.grade,
         academicYear,
-        feeCategoryCode: FeeCategoryCode.TUITION,
-        amountDue: tuition.amount,
+      );
+    });
+  }
+
+  async availableOtherFeeStructures(studentId: string, academicYearId: number) {
+    const student = await this.dataSource.getRepository(Student).findOne({
+      where: { id: studentId },
+      relations: { grade: true },
+    });
+    if (!student) throw new NotFoundException('Student not found');
+    const structures = await this.dataSource.getRepository(FeeStructure).find({
+      where: {
+        grade: { id: student.grade.id },
+        academicYear: { id: academicYearId },
+      },
+      relations: { feeCategory: true },
+      order: { feeCategory: { name: 'ASC' } },
+    });
+    return structures
+      .filter((structure) => !structure.feeCategory.code)
+      .map((structure) => ({
+        id: structure.id,
+        categoryName: structure.feeCategory.name,
+        amount: structure.amount,
+        frequency: structure.frequency,
+        dueDate: structure.dueDate,
+      }));
+  }
+
+  async createOtherFeeInvoice(
+    studentId: string,
+    dto: CreateCustomFeeInvoiceDto,
+  ): Promise<StudentFeeInvoice> {
+    return this.dataSource.transaction(async (manager) => {
+      const student = await manager.getRepository(Student).findOne({
+        where: { id: studentId },
+        relations: { grade: true },
+      });
+      if (!student) throw new NotFoundException('Student not found');
+      const structure = await manager.getRepository(FeeStructure).findOne({
+        where: { id: dto.feeStructureId },
+        relations: { feeCategory: true, academicYear: true, grade: true },
+      });
+      if (!structure) throw new NotFoundException('Fee structure not found');
+      if (structure.grade.id !== student.grade.id) {
+        throw new BadRequestException('This fee structure does not apply to the student grade');
+      }
+      if (structure.feeCategory.code) {
+        throw new BadRequestException('Admission and Tuition invoices are generated separately');
+      }
+      const invoice = manager.getRepository(StudentFeeInvoice).create({
+        student,
+        feeStructure: structure,
+        academicYear: structure.academicYear,
+        feeCategoryCode: `CATEGORY_${structure.feeCategory.id}`,
+        amountDue: structure.amount,
         paidAmount: 0,
-        billingPeriod: `${period}-01`,
-        dueDate: `${period}-${String(Math.min(tuition.dueDay, new Date(Date.UTC(year, month, 0)).getUTCDate())).padStart(2, '0')}`,
+        billingPeriod: null,
+        dueDate: dto.dueDate ?? structure.dueDate ?? dateOnly(new Date()),
         status: InvoiceStatus.UNPAID,
       });
-    }
+      return manager.getRepository(StudentFeeInvoice).save(invoice);
+    });
   }
 
   async listInvoices(studentId?: string) {
@@ -95,6 +214,7 @@ export class FeeLedgerService {
     const today = dateOnly(new Date());
     return rows.map((i) => ({
       ...i,
+      feeCategoryName: i.feeStructure.feeCategory.name,
       remainingAmount: Number((i.amountDue - i.paidAmount).toFixed(2)),
       isOverdue:
         i.status !== InvoiceStatus.PAID &&
